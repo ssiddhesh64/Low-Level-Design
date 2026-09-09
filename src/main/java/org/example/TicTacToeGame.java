@@ -3,12 +3,23 @@ package org.example;
 import java.util.Objects;
 import java.util.Scanner;
 
+enum GameState {
+    RUNNING, COMPLETED
+}
+
+enum GameVerdict {
+    WIN, DRAW
+}
+
+enum Symbol {
+    X, O
+}
+
+record Player(int id, String name, Symbol symbol) { }
+
 class Cell {
 
     Symbol symbol = null;
-//    Cell() {
-//    }
-
     public Symbol getSymbol() {
         return symbol;
     }
@@ -107,27 +118,7 @@ class Board {
             System.out.println();
             System.out.println("-------------");
         }
-//        System.out.println("=========");
     }
-}
-
-enum GameState {
-    RUNNING, COMPLETED
-}
-
-enum GameVerdict {
-    WIN, DRAW
-}
-
-enum Symbol {
-    X, O;
-    Symbol() {
-
-    }
-}
-
-record Player(int id, String name, Symbol symbol) {
-
 }
 
 public class TicTacToeGame {

@@ -136,6 +136,7 @@ public class TicTacToeGame {
         }
 
         this.winningStrategy = winningStrategy;
+
         initialize();
     }
 

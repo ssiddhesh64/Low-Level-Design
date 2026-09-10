@@ -15,7 +15,7 @@ public class ConnectKStrategy implements WinningStrategy {
     @Override
     public boolean checkWinner(Board board, Move move) {
         Position pos = move.position();
-        Symbol s = board.getCell(pos).getSymbol();
+        Symbol s = board.getSymbol(pos);
 
         if(s == null) return false;
 
@@ -52,7 +52,7 @@ public class ConnectKStrategy implements WinningStrategy {
 
         while (row >= 0 && row < n && col >= 0 && col < n) {
 
-            if (board.getCell(new Position(row, col)).getSymbol() != s) {
+            if (board.getSymbol(row, col) != s) {
                 break;
             }
 

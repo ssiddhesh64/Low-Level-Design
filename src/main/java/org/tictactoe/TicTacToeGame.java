@@ -67,15 +67,19 @@ class Board {
         initialize();
     }
 
-    public Cell getCell(Position pos) {
-        return cells[pos.row()][pos.col()];
+    public Symbol getSymbol(Position pos) {
+        return cells[pos.row()][pos.col()].getSymbol();
+    }
+
+    public Symbol getSymbol(int row, int col) {
+        return cells[row][col].getSymbol();
     }
 
     public boolean makeMove(Move move) {
         Position pos = move.position();
         if(!isValid(pos)) return false;
 
-        Cell cell = getCell(pos);
+        Cell cell = cells[pos.row()][pos.col()];
         return cell.setSymbol(move.player().symbol());
     }
 
@@ -209,13 +213,9 @@ public class TicTacToeGame {
             winner = null;
             verdict = GameVerdict.DRAW;
         } else {
-            nextTurn();
+            curTurn = (curTurn + 1) % players.size();
         }
         return true;
-    }
-
-    private void nextTurn() {
-        curTurn = (curTurn + 1) % players.size();
     }
 
     public static void main(String[] args) {
@@ -230,7 +230,7 @@ public class TicTacToeGame {
         game.start();
 
         TicTacToeGame game2 =
-                new TicTacToeGame(3, players, new ConnectKStrategy(2));
+                new TicTacToeGame(5, players, new ConnectKStrategy(4));
         game2.start();
     }
 }

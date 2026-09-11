@@ -13,7 +13,7 @@ public class SlidingWindowRateLimiter implements RateLimiter {
     private final Duration window;
     private final Clock clock;
 
-    ScheduledExecutorService cleanUp = new ScheduledThreadPoolExecutor(4);
+    private final ScheduledExecutorService cleanUp = Executors.newSingleThreadScheduledExecutor();
 
     private final Map<String, SlidingWindowClientRateLimitState> clientStates;
 
@@ -37,7 +37,7 @@ public class SlidingWindowRateLimiter implements RateLimiter {
         this.clock = clock;
         clientStates = new ConcurrentHashMap<>();
 
-        cleanUp.scheduleAtFixedRate(() -> cleanStates(), 0, 1, TimeUnit.DAYS);
+        cleanUp.scheduleAtFixedRate(this::cleanStates, 0, 1, TimeUnit.DAYS);
     }
 
     private void cleanStates() {
@@ -60,5 +60,9 @@ public class SlidingWindowRateLimiter implements RateLimiter {
                 window,
                 limit
         );
+    }
+
+    public void shutdown() {
+        cleanUp.shutdown();
     }
 }

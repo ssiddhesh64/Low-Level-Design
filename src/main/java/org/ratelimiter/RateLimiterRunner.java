@@ -5,6 +5,7 @@ import org.ratelimiter.strategy.RateLimiter;
 import org.ratelimiter.strategy.SlidingWindowRateLimiter;
 import org.util.PrintUtil;
 
+import java.time.Clock;
 import java.time.Duration;
 
 public class RateLimiterRunner {
@@ -12,7 +13,7 @@ public class RateLimiterRunner {
     public static void main(String[] args) {
 
         System.out.println("========Sliding Window========");
-        RateLimiter slidingWindowRateLimiter = new SlidingWindowRateLimiter(2, Duration.ofMinutes(1));
+        RateLimiter slidingWindowRateLimiter = new SlidingWindowRateLimiter(2, Duration.ofMinutes(1), Clock.systemUTC());
 
         boolean shouldAllow1  = slidingWindowRateLimiter.allow("c1");
         boolean shouldAllow2  = slidingWindowRateLimiter.allow("c1");
@@ -21,7 +22,7 @@ public class RateLimiterRunner {
         PrintUtil.print(shouldAllow1, shouldAllow2, shouldAllow3);
 
         System.out.println("========Fixed Window========");
-        FixedWindowRateLimiter fixedWindowRateLimiter = new FixedWindowRateLimiter(2, Duration.ofMinutes(1));
+        RateLimiter fixedWindowRateLimiter = new FixedWindowRateLimiter(2, Duration.ofMinutes(1), Clock.systemUTC());
 
         boolean shouldAllow4  = fixedWindowRateLimiter.allow("c1");
         boolean shouldAllow5  = fixedWindowRateLimiter.allow("c1");

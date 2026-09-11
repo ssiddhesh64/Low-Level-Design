@@ -2,8 +2,8 @@ package org.ratelimiter.strategy;
 
 import org.ratelimiter.states.SlidingWindowClientRateLimitState;
 
+import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -11,24 +11,40 @@ public class SlidingWindowRateLimiter implements RateLimiter {
 
     private final int limit;
     private final Duration window;
+    private final Clock clock;
 
-    private Map<String, SlidingWindowClientRateLimitState> hitMap;
+    private final Map<String, SlidingWindowClientRateLimitState> clientStates;
 
-    public SlidingWindowRateLimiter(int limit, Duration window) {
+    public SlidingWindowRateLimiter(int limit, Duration window, Clock clock) {
+
+        Objects.requireNonNull(clock, "clock should not be null");
+        if (limit <= 0) {
+            throw new IllegalArgumentException("Limit must be greater than 0");
+        }
+
+        if (window.isZero() || window.isNegative()) {
+            throw new IllegalArgumentException("Window must be positive");
+        }
+
+        if (window.getNano() != 0) {
+            throw new IllegalArgumentException("Window must use whole seconds");
+        }
+
         this.limit = limit;
         this.window = window;
-        hitMap = new ConcurrentHashMap<>();
+        this.clock = clock;
+        clientStates = new ConcurrentHashMap<>();
     }
 
     @Override
     public boolean allow(String clientId) {
         SlidingWindowClientRateLimitState state =
-                hitMap.computeIfAbsent(
+                clientStates.computeIfAbsent(
                         clientId,
                         c -> new SlidingWindowClientRateLimitState()
                 );
         return state.tryAcquire(
-                Instant.now(),
+                clock.instant(),
                 window,
                 limit
         );

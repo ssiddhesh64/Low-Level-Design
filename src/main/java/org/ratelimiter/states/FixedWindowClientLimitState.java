@@ -1,6 +1,5 @@
 package org.ratelimiter.states;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -15,7 +14,7 @@ public class FixedWindowClientLimitState {
         windowStart = null;
     }
 
-    public boolean tryAcquire(Instant curstart, Duration window, int limit) {
+    public boolean tryAcquire(Instant curstart, int limit) {
         lock.lock();
         try {
             if(!curstart.equals(windowStart)) {

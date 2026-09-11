@@ -1,4 +1,4 @@
-package org.ratelimiter;
+package org.ratelimiter.states;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -6,12 +6,12 @@ import java.util.Deque;
 import java.util.LinkedList;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class ClientRateLimitState {
+public class SlidingWindowClientRateLimitState {
 
     private final Deque<Instant> timestamps;
     private final ReentrantLock lock = new ReentrantLock();
 
-    public ClientRateLimitState() {
+    public SlidingWindowClientRateLimitState() {
         this.timestamps = new LinkedList<>();
     }
 

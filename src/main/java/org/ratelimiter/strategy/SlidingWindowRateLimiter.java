@@ -1,16 +1,18 @@
-package org.ratelimiter;
+package org.ratelimiter.strategy;
+
+import org.ratelimiter.states.SlidingWindowClientRateLimitState;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class SlidingWindowRateLimiter {
+public class SlidingWindowRateLimiter implements RateLimiter {
 
     private final int limit;
     private final Duration window;
 
-    private Map<String, ClientRateLimitState> hitMap;
+    private Map<String, SlidingWindowClientRateLimitState> hitMap;
 
     public SlidingWindowRateLimiter(int limit, Duration window) {
         this.limit = limit;
@@ -18,11 +20,12 @@ public class SlidingWindowRateLimiter {
         hitMap = new ConcurrentHashMap<>();
     }
 
+    @Override
     public boolean allow(String clientId) {
-        ClientRateLimitState state =
+        SlidingWindowClientRateLimitState state =
                 hitMap.computeIfAbsent(
                         clientId,
-                        c -> new ClientRateLimitState()
+                        c -> new SlidingWindowClientRateLimitState()
                 );
         return state.tryAcquire(
                 Instant.now(),

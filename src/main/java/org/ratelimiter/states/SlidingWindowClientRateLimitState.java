@@ -42,19 +42,25 @@ public class SlidingWindowClientRateLimitState {
             timestamps.pollFirst();
         }
     }
-
-    public boolean shouldRemove(Duration window) {
+    public boolean tryExpire(Instant now, Duration window, Runnable removeFromMap) {
         lock.lock();
         try {
             if (timestamps.isEmpty()) {
+                removeFromMap.run();
                 return true;
             }
 
-            Instant expirationTime = Instant.now().minus(window);
+            Instant expirationTime = now.minus(window);
 
-            return timestamps.peekLast().isBefore(expirationTime);
+            if(timestamps.peekLast().isBefore(expirationTime)) {
+                removeFromMap.run();
+                return true;
+            }
+
+            return false;
         } finally {
             lock.unlock();
         }
     }
+
 }

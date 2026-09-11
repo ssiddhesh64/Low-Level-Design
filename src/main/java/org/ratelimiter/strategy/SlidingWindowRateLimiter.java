@@ -5,13 +5,15 @@ import org.ratelimiter.states.SlidingWindowClientRateLimitState;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 
 public class SlidingWindowRateLimiter implements RateLimiter {
 
     private final int limit;
     private final Duration window;
     private final Clock clock;
+
+    ScheduledExecutorService cleanUp = new ScheduledThreadPoolExecutor(4);
 
     private final Map<String, SlidingWindowClientRateLimitState> clientStates;
 
@@ -34,6 +36,15 @@ public class SlidingWindowRateLimiter implements RateLimiter {
         this.window = window;
         this.clock = clock;
         clientStates = new ConcurrentHashMap<>();
+
+        cleanUp.scheduleAtFixedRate(() -> cleanStates(), 0, 1, TimeUnit.DAYS);
+    }
+
+    private void cleanStates() {
+        for(String clientId : clientStates.keySet()) {
+            SlidingWindowClientRateLimitState state = clientStates.get(clientId);
+            state.tryExpire(clock.instant(), window, () -> clientStates.remove(clientId, state));
+        }
     }
 
     @Override
@@ -43,6 +54,7 @@ public class SlidingWindowRateLimiter implements RateLimiter {
                         clientId,
                         c -> new SlidingWindowClientRateLimitState()
                 );
+
         return state.tryAcquire(
                 clock.instant(),
                 window,

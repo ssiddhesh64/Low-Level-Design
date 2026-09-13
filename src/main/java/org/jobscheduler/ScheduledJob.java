@@ -16,6 +16,11 @@ public class ScheduledJob implements Comparable<ScheduledJob> {
         );
     }
 
+    public boolean run() {
+        job.run();
+        return true;
+    }
+
     public Job getJob() {
         return job;
     }

@@ -8,7 +8,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class Scheduler {
 
-    private volatile boolean running;
+    private volatile SchedularState state;
     ExecutorService scheduledExecutorService = Executors.newSingleThreadExecutor();
 
     ExecutorService workerPool = Executors.newFixedThreadPool(4);
@@ -19,7 +19,7 @@ public class Scheduler {
     PriorityQueue<ScheduledJob> jobs = new PriorityQueue<>();
 
     Scheduler() {
-        running = true;
+        state = SchedularState.RUNNING;
         scheduledExecutorService.execute(this::poll);
     }
 
@@ -29,8 +29,14 @@ public class Scheduler {
             lock.lock();
             try {
 
-                while (running && jobs.isEmpty()) {
+                while (state == SchedularState.RUNNING && jobs.isEmpty()) {
                     condition.await();
+                }
+
+                if(state == SchedularState.SHUTTING_DOWN && jobs.isEmpty()) {
+                    state = SchedularState.TERMINATED;
+                    workerPool.shutdown();
+                    return;
                 }
 
                 ScheduledJob scheduledJob = jobs.peek();
@@ -54,34 +60,37 @@ public class Scheduler {
         }
     }
 
-    public void schedule(Job job, Instant executeAt) {
+    public boolean schedule(Job job, Instant executeAt) {
         lock.lock();
         try {
-            Instant earliestJob;
-            if (jobs.isEmpty()) {
-                earliestJob = executeAt;
-            } else {
-                earliestJob = jobs.peek().getExecuteAt();
+            if(state != SchedularState.RUNNING) {
+                return false;
             }
+            Instant earliestJob = jobs.isEmpty() ? null : jobs.peek().getExecuteAt();
+
             jobs.offer(new ScheduledJob(job, executeAt));
-            if (executeAt.isBefore(earliestJob)) {
+
+            if (earliestJob == null || executeAt.isBefore(earliestJob)) {
                 condition.signal();
             }
+
+            return true;
         } finally {
             lock.unlock();
         }
     }
 
     public void shutdown() {
+
+        if(state != SchedularState.RUNNING) return;
         lock.lock();
         try {
-            running = false;
+            state = SchedularState.SHUTTING_DOWN;
             condition.signalAll();
         } finally {
             lock.unlock();
         }
 
         scheduledExecutorService.shutdown();
-        workerPool.shutdown();
     }
 }

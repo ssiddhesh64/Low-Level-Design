@@ -16,7 +16,8 @@ public class Scheduler {
     ReentrantLock lock = new ReentrantLock();
     Condition condition = lock.newCondition();
 
-    PriorityQueue<ScheduledJob> jobs = new PriorityQueue<>();
+    PriorityQueue<ScheduledJob> jobQueue = new PriorityQueue<>();
+    Map<String, ScheduledJob> jobMap = new HashMap<>();
 
     Scheduler() {
         state = SchedularState.RUNNING;
@@ -29,17 +30,21 @@ public class Scheduler {
             lock.lock();
             try {
 
-                while (state == SchedularState.RUNNING && jobs.isEmpty()) {
+                while (state == SchedularState.RUNNING && jobQueue.isEmpty()) {
                     condition.await();
                 }
 
-                if(state == SchedularState.SHUTTING_DOWN && jobs.isEmpty()) {
+                if(state == SchedularState.SHUTTING_DOWN && jobQueue.isEmpty()) {
                     state = SchedularState.TERMINATED;
                     workerPool.shutdown();
                     return;
                 }
 
-                ScheduledJob scheduledJob = jobs.peek();
+                ScheduledJob scheduledJob = jobQueue.peek();
+                if(scheduledJob.isCancelled()) {
+                    jobQueue.poll();
+                    continue;
+                }
 
                 long rem = scheduledJob.getExecuteAt().toEpochMilli() - Instant.now().toEpochMilli();
 
@@ -48,7 +53,8 @@ public class Scheduler {
                     continue;
                 }
 
-                ScheduledJob job = jobs.poll();
+                ScheduledJob job = jobQueue.poll();
+                job.setRunning(true);
                 workerPool.submit(job::run);
 
             } catch (InterruptedException e) {
@@ -66,9 +72,16 @@ public class Scheduler {
             if(state != SchedularState.RUNNING) {
                 return false;
             }
-            Instant earliestJob = jobs.isEmpty() ? null : jobs.peek().getExecuteAt();
+            Instant earliestJob = jobQueue.isEmpty() ? null : jobQueue.peek().getExecuteAt();
 
-            jobs.offer(new ScheduledJob(job, executeAt));
+            String jobId = job.getJobId();
+            if(jobMap.containsKey(jobId)) {
+                System.out.println("Job already submitted");
+                return false;
+            }
+            ScheduledJob newJob = new ScheduledJob(job, executeAt);
+            jobMap.put(jobId, newJob);
+            jobQueue.offer(newJob);
 
             if (earliestJob == null || executeAt.isBefore(earliestJob)) {
                 condition.signal();
@@ -92,5 +105,24 @@ public class Scheduler {
         }
 
         scheduledExecutorService.shutdown();
+    }
+
+    public boolean cancel(String jobId) {
+
+        lock.lock();
+        try {
+            if(!jobMap.containsKey(jobId)) return false;
+            ScheduledJob scheduledJob = jobMap.get(jobId);
+            if(scheduledJob.isRunning()) {
+                System.out.println("Job: :" + jobId + " is Running");
+                return false;
+            }
+
+            scheduledJob.setCancelled(true);
+            jobMap.remove(jobId);
+            return true;
+        } finally {
+            lock.unlock();
+        }
     }
 }

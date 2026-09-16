@@ -17,11 +17,14 @@ public class Scheduler {
     Condition condition = lock.newCondition();
 
     PriorityQueue<ScheduledJob> jobQueue = new PriorityQueue<>();
-    Map<String, ScheduledJob> jobMap = new HashMap<>();
+//    Map<String, ScheduledJob> jobMap = new HashMap<>();
+
+    DependencyGraph graph;
 
     Scheduler() {
         state = SchedularState.RUNNING;
         scheduledExecutorService.execute(this::poll);
+        graph = new DependencyGraph();
     }
 
     public void poll() {
@@ -41,7 +44,7 @@ public class Scheduler {
                 }
 
                 ScheduledJob scheduledJob = jobQueue.peek();
-                if(scheduledJob.isCancelled()) {
+                if(scheduledJob.getJobStatus().equals(JobStatus.CANCELLED)) {
                     jobQueue.poll();
                     continue;
                 }
@@ -54,15 +57,48 @@ public class Scheduler {
                 }
 
                 ScheduledJob job = jobQueue.poll();
-                job.setRunning(true);
-                workerPool.submit(job::run);
-
+                job.setJobStatus(JobStatus.RUNNING);
+                workerPool.submit(() -> {
+                    try {
+                        job.run();
+                        onJobSuccess(job);
+                    } catch (Exception e) {
+                        onJobFailure(job);
+                    }
+                });
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;
             } finally {
                 lock.unlock();
             }
+        }
+    }
+
+    private void onJobSuccess(ScheduledJob job) {
+
+        job.setJobStatus(JobStatus.SUCCESS);
+        for(String child : job.getDependents()) {
+            ScheduledJob childJob = graph.getJob(child);
+            childJob.getDependsOn().remove(job.getJob().getJobId());
+
+            if(childJob.getDependsOn().isEmpty() && !childJob.getJobStatus().equals(JobStatus.CANCELLED)) {
+                childJob.setJobStatus(JobStatus.READY);
+                lock.lock();
+                try {
+                    jobQueue.offer(childJob);
+                    condition.signal();
+                } finally {
+                    lock.unlock();
+                }
+             }
+        }
+    }
+
+    private void onJobFailure(ScheduledJob job) {
+        job.setJobStatus(JobStatus.FAILED);
+        for(String child : job.getDependents()) {
+            graph.getJob(child).setJobStatus(JobStatus.CANCELLED);
         }
     }
 
@@ -75,13 +111,52 @@ public class Scheduler {
             Instant earliestJob = jobQueue.isEmpty() ? null : jobQueue.peek().getExecuteAt();
 
             String jobId = job.getJobId();
-            if(jobMap.containsKey(jobId)) {
+            if(graph.getJob(jobId) != null) {
                 System.out.println("Job already submitted");
                 return false;
             }
             ScheduledJob newJob = new ScheduledJob(job, executeAt);
-            jobMap.put(jobId, newJob);
+            graph.addJob(newJob);
             jobQueue.offer(newJob);
+
+            if (earliestJob == null || executeAt.isBefore(earliestJob)) {
+                condition.signal();
+            }
+
+            return true;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public boolean schedule(Job job, Instant executeAt, List<String> dependsOn) {
+        lock.lock();
+        try {
+            if(state != SchedularState.RUNNING) {
+                return false;
+            }
+            Instant earliestJob = jobQueue.isEmpty() ? null : jobQueue.peek().getExecuteAt();
+
+            String jobId = job.getJobId();
+            ScheduledJob newJob = new ScheduledJob(job, executeAt);
+
+            newJob.dependsOn.addAll(new HashSet<>(dependsOn));
+            for(String par : dependsOn) {
+                ScheduledJob child = graph.getJob(par);
+                newJob.addParent(par);
+                if(Objects.nonNull(child)) {
+                    child.addDependent(jobId);
+                }
+            }
+
+            if(graph.getJob(jobId) != null) {
+                System.out.println("Job already submitted");
+                return false;
+            }
+            graph.addJob(newJob);
+            if(newJob.getDependsOn().isEmpty()) {
+                jobQueue.offer(newJob);
+            }
 
             if (earliestJob == null || executeAt.isBefore(earliestJob)) {
                 condition.signal();
@@ -111,15 +186,14 @@ public class Scheduler {
 
         lock.lock();
         try {
-            if(!jobMap.containsKey(jobId)) return false;
-            ScheduledJob scheduledJob = jobMap.get(jobId);
-            if(scheduledJob.isRunning()) {
+            ScheduledJob job = graph.getJob(jobId);
+            if(job == null) return false;
+            if(job.getJobStatus().equals(JobStatus.RUNNING)) {
                 System.out.println("Job: :" + jobId + " is Running");
                 return false;
             }
 
-            scheduledJob.setCancelled(true);
-            jobMap.remove(jobId);
+            job.setJobStatus(JobStatus.CANCELLED);
             return true;
         } finally {
             lock.unlock();

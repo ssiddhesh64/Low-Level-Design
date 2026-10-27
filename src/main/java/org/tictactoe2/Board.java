@@ -1,7 +1,5 @@
 package org.tictactoe2;
 
-import java.util.Arrays;
-
 public class Board {
 
     int n;
@@ -41,69 +39,6 @@ public class Board {
 
     public Symbol getSymbol(int x, int y) {
         return cells[x][y].symbol;
-    }
-
-    public boolean hasWinner(int x, int y, Symbol s) {
-
-        if (x < 0 || x >= n || y < 0 || y >= n) {
-            return false;
-        }
-
-        if (s == null || cells[x][y].symbol != s) {
-            return false;
-        }
-
-        return checkRow(x, y, s)
-        || checkCol(x, y, s)
-        || checkDiag(x, y, s)
-        || checkAntiDiag(x, y, s);
-    }
-
-    private boolean checkAntiDiag(int x, int y, Symbol s) {
-
-        if (x + y != n - 1) {
-            return false;
-        }
-
-        for (int i = 0; i < n; i++) {
-            if (cells[i][n - 1 - i].symbol != s) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private boolean checkDiag(int x, int y, Symbol s) {
-
-        if (x != y) {
-            return false;
-        }
-
-        for (int i = 0; i < n; i++) {
-            if (cells[i][i].symbol != s) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private boolean checkCol(int x, int y, Symbol s) {
-        for (int i = 0; i < n; i++) {
-            if(cells[i][y].symbol != s) return false;
-        }
-
-        return true;
-    }
-
-    private boolean checkRow(int x, int y, Symbol s) {
-
-        for (int i = 0; i < n; i++) {
-            if(cells[x][i].symbol != s) return false;
-        }
-
-        return true;
     }
 
     public void display() {

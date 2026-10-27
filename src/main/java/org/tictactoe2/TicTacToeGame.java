@@ -8,8 +8,8 @@ public class TicTacToeGame {
 
     private Status gameStatus;
     private Board board;
-    private int boardSize;
-    private int nPlayers;
+    private final int boardSize;
+    private final int nPlayers;
     private int turn;
     private int moves;
     Player[] players;
